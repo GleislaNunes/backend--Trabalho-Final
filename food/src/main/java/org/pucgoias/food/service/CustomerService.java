@@ -1,11 +1,18 @@
 package org.pucgoias.food.service;
 
-import java.util.List;
-
+import org.apache.coyote.BadRequestException;
 import org.pucgoias.food.dao.CustomerRepository;
+import org.pucgoias.food.dao.UserRepository;
+import org.pucgoias.food.dto.CreateCustomerDto;
+import org.pucgoias.food.dto.LoginResponseDto;
 import org.pucgoias.food.model.Customer;
+import org.pucgoias.food.model.User;
+import org.pucgoias.food.model.UserType;
+import org.pucgoias.food.util.ValidationUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CustomerService {
@@ -13,63 +20,57 @@ public class CustomerService {
     @Autowired
     private CustomerRepository customerRepository;
 
-    /**
-     * Retrieve all customers.
-     *
-     * @return List of Customer entities
-     */
-    public List<Customer> findAll() {
-        return customerRepository.findAll();
-    }
+    @Autowired
+    private UserRepository userRepository;
 
-    /**
-     * Retrieve a customer by its ID.
-     *
-     * @param id the ID of the customer
-     * @return the Customer entity
-     * @throws RuntimeException if the customer is not found
-     */
-    public Customer findById(Long id) {
-        return customerRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Customer not found with id: " + id));
-    }
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
-    /**
-     * Create a new customer and save it to the database.
-     *
-     * @param customer the Customer entity to save
-     * @return the saved Customer entity
-     */
-    public Customer save(Customer customer) {
-        return customerRepository.save(customer);
-    }
+    @Autowired
+    private JwtService jwtService;
 
-    /**
-     * Update an existing customer by its ID.
-     *
-     * @param id            the ID of the customer to update
-     * @param customerDetails the updated customer data
-     * @return the updated Customer entity
-     * @throws RuntimeException if the customer is not found
-     */
-    public Customer update(Long id, Customer customerDetails) {
-        Customer customer = findById(id);
-        customer.setName(customerDetails.getName());
-        customer.setCpf(customerDetails.getCpf());
-        customer.setPhoneNumber(customerDetails.getPhoneNumber());
-        customer.setUser(customerDetails.getUser());
-        return customerRepository.save(customer);
-    }
-
-    /**
-     * Delete a customer by its ID.
-     *
-     * @param id the ID of the customer to delete
-     */
-    public void deleteById(Long id) {
-        if (!customerRepository.existsById(id)) {
-            throw new RuntimeException("Customer not found with id: " + id);
+    @Transactional
+    public LoginResponseDto save(CreateCustomerDto data) throws BadRequestException {
+        boolean emailAlreadyExists = userRepository.existsByEmail(data.email());
+        if (emailAlreadyExists) {
+            throw new BadRequestException("Já existe um usuário com este email");
         }
-        customerRepository.deleteById(id);
+
+        String cpf = data.cpf().replaceAll("[^0-9]", "");
+
+        boolean isCpfValid = ValidationUtil.validateCPF(cpf);
+        if (!isCpfValid) {
+            throw new BadRequestException("CPF inválido!");
+        }
+
+        boolean cpfAlreadyExists = customerRepository.existsByCpf(cpf);
+        if (cpfAlreadyExists) {
+            throw new BadRequestException("Já existe um usuário com este cpf");
+        }
+
+        String phoneNumber = data.phone().replaceAll("[^0-9]", "");
+
+        boolean phoneNumberAlreadyExists = customerRepository.existsByPhoneNumber(phoneNumber);
+
+        if (phoneNumberAlreadyExists) {
+            throw new BadRequestException("Já existe um usuário com este telefone");
+        }
+
+        User user = new User();
+        user.setEmail(data.email());
+        user.setPassword(passwordEncoder.encode(data.password()));
+        user.setType(UserType.CUSTOMER);
+        user = userRepository.save(user);
+
+        Customer customer = new Customer();
+        customer.setUser(user);
+        customer.setName(data.name());
+        customer.setCpf(cpf);
+        customer.setPhoneNumber(phoneNumber);
+        customer = customerRepository.save(customer);
+
+        String jwtToken = jwtService.generateToken(user);
+
+        return new LoginResponseDto(user.getId(), user.getEmail(), jwtToken, customer);
     }
 }

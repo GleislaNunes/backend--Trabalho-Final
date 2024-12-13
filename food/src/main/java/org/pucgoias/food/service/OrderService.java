@@ -1,84 +1,73 @@
 package org.pucgoias.food.service;
 
-import java.util.List;
+import java.math.BigDecimal;
 
-import org.pucgoias.food.dao.OrderRepository;
-import org.pucgoias.food.model.Order;
+import jakarta.transaction.Transactional;
+import org.pucgoias.food.dao.*;
+import org.pucgoias.food.dto.CreateOrderDto;
+import org.pucgoias.food.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 @Service
 public class OrderService {
-
     @Autowired
     private OrderRepository orderRepository;
 
-    /**
-     * Retrieve all orders.
-     *
-     * @return List of Order entities
-     */
-    public List<Order> findAll() {
-        return orderRepository.findAll();
-    }
+    @Autowired
+    private RestaurantRepository restaurantRepository;
 
-    /**
-     * Retrieve an order by its ID.
-     *
-     * @param id the ID of the order
-     * @return the Order entity
-     * @throws RuntimeException if the order is not found
-     */
-    public Order findById(Long id) {
-        return orderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Order not found with id: " + id));
-    }
+    @Autowired
+    private ProductRepository productRepository;
 
-    /**
-     * Create a new order and save it to the database.
-     *
-     * @param order the Order entity to save
-     * @return the saved Order entity
-     */
-    public Order save(Order order) {
-        return orderRepository.save(order);
-    }
+    @Autowired
+    private OrderItemRepository orderItemRepository;
 
-    /**
-     * Update an existing order by its ID.
-     *
-     * @param id         the ID of the order to update
-     * @param orderDetails the updated order data
-     * @return the updated Order entity
-     * @throws RuntimeException if the order is not found
-     */
-    public Order update(Long id, Order orderDetails) {
-        Order order = findById(id);
-        order.setRestaurant(orderDetails.getRestaurant());
-        order.setCustomer(orderDetails.getCustomer());
-        order.setPostalCode(orderDetails.getPostalCode());
-        order.setAddressLine1(orderDetails.getAddressLine1());
-        order.setAddressLine2(orderDetails.getAddressLine2());
-        order.setCity(orderDetails.getCity());
-        order.setState(orderDetails.getState());
-        order.setCountry(orderDetails.getCountry());
-        order.setLatitude(orderDetails.getLatitude());
-        order.setLongitude(orderDetails.getLongitude());
-        order.setPaymentType(orderDetails.getPaymentType());
-        order.setTotalPrice(orderDetails.getTotalPrice());
-        order.setStatus(orderDetails.getStatus());
-        return orderRepository.save(order);
-    }
+    @Autowired
+    private CustomerRepository customerRepository;
 
-    /**
-     * Delete an order by its ID.
-     *
-     * @param id the ID of the order to delete
-     */
-    public void deleteById(Long id) {
-        if (!orderRepository.existsById(id)) {
-            throw new RuntimeException("Order not found with id: " + id);
+    @Transactional
+    public Order save(CreateOrderDto data) {
+        User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        Restaurant restaurant = restaurantRepository.findById(data.restaurantId())
+            .orElseThrow();
+
+        Customer customer = customerRepository.findByUserId(user.getId());
+
+        Order order = new Order();
+        order.setCustomer(customer);
+        order.setRestaurant(restaurant);
+        order.setPaymentType(data.paymentType());
+        order.setAddressLine1(data.addressLine1());
+        order.setAddressLine2(data.addressLine2());
+        order.setCity(data.city());
+        order.setState(data.state());
+        order.setCountry(data.country());
+        order.setPostalCode(data.postalCode());
+        order.setStatus(OrderStatus.PENDING);
+        order = orderRepository.save(order);
+
+        double totalPrice = restaurant.getDeliveryPrice().doubleValue();
+        for (var item : data.items()) {
+            Product product = productRepository.findById(item.productId())
+                .orElseThrow();
+
+            totalPrice += product.getPrice().doubleValue() * item.quantity();
+
+            OrderItem orderItem = new OrderItem();
+            orderItem.setOrder(order);
+            orderItem.setProduct(product);
+            orderItem.setPrice(product.getPrice());
+            orderItem.setQuantity(item.quantity());
+            orderItem.setNotes(item.notes());
+            orderItem = orderItemRepository.save(orderItem);
         }
-        orderRepository.deleteById(id);
+
+        order.setTotalPrice(new BigDecimal(totalPrice));
+        order = orderRepository.save(order);
+
+        return order;
     }
 }

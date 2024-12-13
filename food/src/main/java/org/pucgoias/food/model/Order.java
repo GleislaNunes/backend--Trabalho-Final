@@ -1,6 +1,8 @@
 package org.pucgoias.food.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.ColumnTransformer;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -38,14 +40,9 @@ public class Order {
     @Column(nullable = false)
     private String country;
 
-    @Column(nullable = false, precision = 9, scale = 6)
-    private BigDecimal latitude;
-
-    @Column(nullable = false, precision = 9, scale = 6)
-    private BigDecimal longitude;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_type", nullable = false)
+	@ColumnTransformer(read = "type::character varying", write = "?::payment_type")
     private PaymentType paymentType;
 
     @Column(name = "total_price", precision = 10, scale = 2)
@@ -53,6 +50,7 @@ public class Order {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+	@ColumnTransformer(read = "type::character varying", write = "?::order_status")
     private OrderStatus status;
 
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -120,22 +118,6 @@ public class Order {
 
 	public void setCountry(String country) {
 		this.country = country;
-	}
-
-	public BigDecimal getLatitude() {
-		return latitude;
-	}
-
-	public void setLatitude(BigDecimal latitude) {
-		this.latitude = latitude;
-	}
-
-	public BigDecimal getLongitude() {
-		return longitude;
-	}
-
-	public void setLongitude(BigDecimal longitude) {
-		this.longitude = longitude;
 	}
 
 	public PaymentType getPaymentType() {

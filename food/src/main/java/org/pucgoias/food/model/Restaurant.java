@@ -1,8 +1,11 @@
 package org.pucgoias.food.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "restaurants")
@@ -14,6 +17,10 @@ public class Restaurant {
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+	@OneToMany(mappedBy = "restaurant")
+	@JsonIgnoreProperties("restaurant")
+	private Set<Category> categories = new HashSet<>();
 
     @Column(nullable = false)
     private String name;
@@ -44,12 +51,6 @@ public class Restaurant {
     @Column(name = "delivery_radius", nullable = false)
     private BigDecimal deliveryRadius;
 
-    @Column(nullable = false, precision = 9, scale = 6)
-    private BigDecimal latitude;
-
-    @Column(nullable = false, precision = 9, scale = 6)
-    private BigDecimal longitude;
-
     @Column(name = "phone_number", nullable = false, unique = true)
     private String phoneNumber;
 
@@ -62,6 +63,14 @@ public class Restaurant {
 
 	public void setUser(User user) {
 		this.user = user;
+	}
+
+	public Set<Category> getCategories() {
+		return categories;
+	}
+
+	public void setCategories(Set<Category> categories) {
+		this.categories = categories;
 	}
 
 	public String getName() {
@@ -142,22 +151,6 @@ public class Restaurant {
 
 	public void setDeliveryRadius(BigDecimal deliveryRadius) {
 		this.deliveryRadius = deliveryRadius;
-	}
-
-	public BigDecimal getLatitude() {
-		return latitude;
-	}
-
-	public void setLatitude(BigDecimal latitude) {
-		this.latitude = latitude;
-	}
-
-	public BigDecimal getLongitude() {
-		return longitude;
-	}
-
-	public void setLongitude(BigDecimal longitude) {
-		this.longitude = longitude;
 	}
 
 	public String getPhoneNumber() {

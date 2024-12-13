@@ -1,7 +1,10 @@
 package org.pucgoias.food.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "categories")
@@ -13,6 +16,10 @@ public class Category {
     @ManyToOne
     @JoinColumn(name = "restaurant_id", nullable = false)
     private Restaurant restaurant;
+
+	@OneToMany(mappedBy = "category")
+	@JsonIgnoreProperties("category")
+	private Set<Product> products = new HashSet<>();
 
     @Column(nullable = false)
     private String name;
@@ -47,4 +54,12 @@ public class Category {
 	public Long getId() {
 		return id;
 	}
+
+    public Set<Product> getProducts() {
+        return products;
+    }
+
+    public void setProducts(Set<Product> products) {
+        this.products = products;
+    }
 }
